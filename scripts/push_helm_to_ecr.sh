@@ -55,13 +55,22 @@ fi
 
 
 # Check if ECR repository exists and create if not
-echo "Checking if ECR repository $REPOSITORY exists..."
-if ! aws ecr describe-repositories --repository-names "$REPOSITORY" --region "$REGION" >/dev/null 2>&1; then
-  echo "Repository $REPOSITORY does not exist. Creating..."
-  aws ecr create-repository --repository-name "$REPOSITORY" --region "$REGION" --tags "Key=orgid,Value=$ORGID" "Key=appid,Value=$APPID" "Key=buid,Value=$BUID"
-  echo "Repository $REPOSITORY created."
+# Helm push to oci://REGISTRY/REPOSITORY will push to oci://REGISTRY/REPOSITORY/CHART_NAME
+# So the actual ECR repository we need to create is REPOSITORY/CHART_NAME
+
+# Extract chart name from CHART_ARCHIVE (removing .tgz and version)
+CHART_BASENAME="${CHART_ARCHIVE%.tgz}"
+CHART_NAME="${CHART_BASENAME%-$VERSION}"
+
+ECR_REPO_NAME="${REPOSITORY}/${CHART_NAME}"
+
+echo "Checking if ECR repository $ECR_REPO_NAME exists..."
+if ! aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region "$REGION" >/dev/null 2>&1; then
+  echo "Repository $ECR_REPO_NAME does not exist. Creating..."
+  aws ecr create-repository --repository-name "$ECR_REPO_NAME" --region "$REGION" --tags "Key=orgid,Value=$ORGID" "Key=appid,Value=$APPID" "Key=buid,Value=$BUID"
+  echo "Repository $ECR_REPO_NAME created."
 else
-  echo "Repository $REPOSITORY already exists."
+  echo "Repository $ECR_REPO_NAME already exists."
 fi
 
 echo "Pushing Helm chart to ECR: oci://${REGISTRY}/${REPOSITORY}..."
