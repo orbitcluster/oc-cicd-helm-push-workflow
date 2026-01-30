@@ -7,11 +7,6 @@ if [ -z "$GITHUB_TOKEN" ]; then
   exit 1
 fi
 
-if [ -z "$ORGID" ]; then
-  echo "Error: ORGID is not set."
-  exit 1
-fi
-
 if [ -z "$PACKAGE" ]; then
   echo "Error: PACKAGE is not set."
   exit 1
@@ -24,6 +19,16 @@ fi
 
 if [ -z "$REGISTRY" ]; then
   echo "Error: REGISTRY is not set."
+  exit 1
+fi
+
+if [ -z "$REPOSITORY" ]; then
+  echo "Error: REPOSITORY is not set."
+  exit 1
+fi
+
+if [ -z "$REGION" ]; then
+  echo "Error: REGION is not set."
   exit 1
 fi
 
@@ -48,7 +53,18 @@ if [ ! -f "$CHART_FILE" ]; then
   exit 1
 fi
 
-echo "Pushing Helm chart to ECR: oci://${REGISTRY}..."
-helm push "$CHART_FILE" "oci://${REGISTRY}"
 
-echo "Successfully pushed $CHART_FILE to oci://${REGISTRY}"
+# Check if ECR repository exists and create if not
+echo "Checking if ECR repository $REPOSITORY exists..."
+if ! aws ecr describe-repositories --repository-names "$REPOSITORY" --region "$REGION" >/dev/null 2>&1; then
+  echo "Repository $REPOSITORY does not exist. Creating..."
+  aws ecr create-repository --repository-name "$REPOSITORY" --region "$REGION" --tags "Key=orgid,Value=$ORGID" "Key=appid,Value=$APPID" "Key=buid,Value=$BUID"
+  echo "Repository $REPOSITORY created."
+else
+  echo "Repository $REPOSITORY already exists."
+fi
+
+echo "Pushing Helm chart to ECR: oci://${REGISTRY}/${REPOSITORY}..."
+helm push "$CHART_FILE" "oci://${REGISTRY}/${REPOSITORY}"
+
+echo "Successfully pushed $CHART_FILE to oci://${REGISTRY}/${REPOSITORY}"
