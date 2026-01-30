@@ -19,10 +19,13 @@ inputs:
     default: "us-east-1"
   chart-archive:
     description: "The .tgz file name"
-    value: ${{ steps.package.outputs.chart-archive }}
+    required: true
+  package:
+    description: "Package path (repo-name/helm/chart-name)"
+    required: true
   version:
     description: "The final version of the chart (calculated or override)"
-    value: ${{ steps.package.outputs.version }}
+    required: true
 
 runs:
   using: "composite"
@@ -48,7 +51,6 @@ runs:
         APPID: ${{ inputs.appid }}
         REGION: ${{ inputs.region }}
         CHART_ARCHIVE: ${{ inputs.chart-archive }}
-        IMAGE: ${{ inputs.image }}
         PACKAGE: ${{ inputs.package }}
         VERSION: ${{ inputs.version }}
         REGISTRY: ${{ steps.login-ecr.outputs.registry }}
