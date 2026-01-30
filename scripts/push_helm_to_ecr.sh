@@ -39,7 +39,7 @@ echo "Pulling Helm chart from ${SOURCE_URI} with version ${VERSION}..."
 helm pull "${SOURCE_URI}" --version "${VERSION}"
 
 # The pulled file will be named based on the chart name and version
-CHART_FILE="${CHART_ARCHIVE}-${VERSION}.tgz"
+CHART_FILE="${CHART_ARCHIVE}"
 
 if [ ! -f "$CHART_FILE" ]; then
   echo "Error: Expected chart file $CHART_FILE not found after pull."
