@@ -26,6 +26,10 @@ inputs:
   version:
     description: "The final version of the chart (calculated or override)"
     required: true
+  github-token:
+    description: "GitHub Token for authenticating with GHCR"
+    required: false
+    default: ${{ github.token }}
 
 runs:
   using: "composite"
@@ -54,6 +58,7 @@ runs:
         PACKAGE: ${{ inputs.package }}
         VERSION: ${{ inputs.version }}
         REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         chmod +x ${{ github.action_path }}/scripts/push_helm_to_ecr.sh
         ${{ github.action_path }}/scripts/push_helm_to_ecr.sh
