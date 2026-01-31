@@ -51,23 +51,22 @@ IMAGE_DIGESTS=$(aws ecr list-images --repository-name "$ECR_REPO_NAME" --region 
     --output text)
 
 if [ -z "$IMAGE_DIGESTS" ]; then
-    echo "No images found for branch $BRANCH_NAME."
-    exit 0
+    echo "No images found for branch $BRANCH_NAME in ECR."
+else
+    echo "Found images to delete:"
+    echo "$IMAGE_DIGESTS"
+
+    # Convert space-delimited digests to format needed for batch-delete-image
+    DELETE_ARGS=""
+    for digest in $IMAGE_DIGESTS; do
+        DELETE_ARGS="$DELETE_ARGS imageDigest=$digest"
+    done
+
+    echo "Deleting images..."
+    aws ecr batch-delete-image --repository-name "$ECR_REPO_NAME" --region "$REGION" --image-ids $DELETE_ARGS
+
+    echo "ECR Cleanup complete."
 fi
-
-echo "Found images to delete:"
-echo "$IMAGE_DIGESTS"
-
-# Convert space-delimited digests to format needed for batch-delete-image
-DELETE_ARGS=""
-for digest in $IMAGE_DIGESTS; do
-    DELETE_ARGS="$DELETE_ARGS imageDigest=$digest"
-done
-
-echo "Deleting images..."
-aws ecr batch-delete-image --repository-name "$ECR_REPO_NAME" --region "$REGION" --image-ids $DELETE_ARGS
-
-echo "Cleanup complete."
 
 # ------------------------------------------------------------------
 # GHCR Cleanup Logic
