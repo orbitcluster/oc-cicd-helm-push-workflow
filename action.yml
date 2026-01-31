@@ -52,6 +52,7 @@ runs:
 
     - name: Push Helm Chart to AWS ECR
       id: push-to-ecr
+      if: ${{ github.event_name == 'push' }}
       shell: bash
       env:
         ORGID: ${{ inputs.orgid }}
@@ -67,3 +68,23 @@ runs:
       run: |
         chmod +x ${{ github.action_path }}/scripts/push_helm_to_ecr.sh
         ${{ github.action_path }}/scripts/push_helm_to_ecr.sh
+
+    - name: Cleanup non-main branches
+      id: cleanup-non-main
+      if: ${{ github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        ORGID: ${{ inputs.orgid }}
+        BUID: ${{ inputs.buid }}
+        APPID: ${{ inputs.appid }}
+        REGION: ${{ inputs.region }}
+        CHART_ARCHIVE: ${{ inputs.chart-archive }}
+        PACKAGE: ${{ inputs.package }}
+        VERSION: ${{ inputs.version }}
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        REPOSITORY: ${{ inputs.repository }}
+        BRANCH_NAME: ${{ github.head_ref }}
+      run: |
+        chmod +x ${{ github.action_path }}/scripts/cleanup_helm_from_ecr.sh
+        ${{ github.action_path }}/scripts/cleanup_helm_from_ecr.sh
