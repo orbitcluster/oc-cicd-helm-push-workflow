@@ -68,3 +68,63 @@ echo "Deleting images..."
 aws ecr batch-delete-image --repository-name "$ECR_REPO_NAME" --region "$REGION" --image-ids $DELETE_ARGS
 
 echo "Cleanup complete."
+
+# ------------------------------------------------------------------
+# GHCR Cleanup Logic
+# ------------------------------------------------------------------
+
+if [ -z "$GITHUB_TOKEN" ]; then
+  echo "GITHUB_TOKEN is not set. Skipping GHCR cleanup."
+  exit 0
+fi
+
+if [ -z "$PACKAGE" ]; then
+  echo "PACKAGE is not set. Skipping GHCR cleanup."
+  exit 0
+fi
+
+echo "Starting GHCR cleanup for package: $PACKAGE"
+
+# PACKAGE format is expected to be "owner/image-name" (or with sub-paths)
+# e.g. "orbitcluster/oc-helm-kubernetes-services/k8s-service"
+# We need to split this into OWNER and the rest (IMAGE_NAME)
+OWNER=$(echo "$PACKAGE" | cut -d'/' -f1)
+IMAGE_NAME=$(echo "$PACKAGE" | cut -d'/' -f2-)
+
+# URL Encode the image name for the API (replace / with %2F)
+ENCODED_IMAGE_NAME=${IMAGE_NAME//\//%2f}
+
+echo "Detected Owner: $OWNER"
+echo "Detected Image Name: $IMAGE_NAME (Encoded: $ENCODED_IMAGE_NAME)"
+
+# Determine if this is an Organization or User package
+# We check access to the Org endpoint first.
+API_PREFIX="/orgs/$OWNER"
+if ! gh api "$API_PREFIX/packages/container/$ENCODED_IMAGE_NAME/versions" -H "Accept: application/vnd.github+json" --silent >/dev/null 2>&1; then
+  echo "Package not found in Org endpoint, checking User endpoint..."
+  API_PREFIX="/users/$OWNER"
+fi
+
+echo "Listing GHCR versions matching branch tag '${SAFE_BRANCH_NAME}'..."
+
+# List versions and filter by tag
+# We use jq to select versions where any tag contains the SAFE_BRANCH_NAME
+# Note: handling null tags gracefully
+VERSION_IDS=$(gh api "$API_PREFIX/packages/container/$ENCODED_IMAGE_NAME/versions" \
+  -H "Accept: application/vnd.github+json" \
+  --jq ".[] | select(.metadata.container.tags != null) | select(any(.metadata.container.tags[]; contains(\"$SAFE_BRANCH_NAME\"))) | .id")
+
+if [ -z "$VERSION_IDS" ]; then
+  echo "No GHCR versions found for branch $BRANCH_NAME."
+else
+  echo "Found matching versions. Deleting..."
+  for vid in $VERSION_IDS; do
+    echo "Deleting GHCR version ID: $vid"
+    if gh api --method DELETE "$API_PREFIX/packages/container/$ENCODED_IMAGE_NAME/versions/$vid" -H "Accept: application/vnd.github+json"; then
+      echo "Deleted $vid"
+    else
+      echo "Failed to delete $vid"
+    fi
+  done
+  echo "GHCR Cleanup complete."
+fi
