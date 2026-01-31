@@ -1,0 +1,69 @@
+name: "Helm Push"
+description: "Perform Helm Push"
+inputs:
+  appid:
+    description: "Application ID"
+    required: true
+  orgid:
+    description: "Organization ID"
+    required: true
+  buid:
+    description: "Build ID"
+    required: true
+  role-to-assume:
+    description: "Role to assume"
+    required: true
+  region:
+    description: "Region"
+    required: false
+    default: "us-east-1"
+  chart-archive:
+    description: "The .tgz file name"
+    required: true
+  package:
+    description: "Package path (repo-name/helm/chart-name)"
+    required: true
+  version:
+    description: "The final version of the chart (calculated or override)"
+    required: true
+  github-token:
+    description: "GitHub Token for authenticating with GHCR"
+    required: false
+    default: ${{ github.token }}
+  repository:
+    description: "Repository name"
+    required: false
+    default: "platform"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure AWS Credentials
+      id: configure-aws
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.role-to-assume }}
+        aws-region: ${{ inputs.region }}
+        role-session-name: githubactions-${{ github.run_id }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Push Helm Chart to AWS ECR
+      id: push-to-ecr
+      shell: bash
+      env:
+        ORGID: ${{ inputs.orgid }}
+        BUID: ${{ inputs.buid }}
+        APPID: ${{ inputs.appid }}
+        REGION: ${{ inputs.region }}
+        CHART_ARCHIVE: ${{ inputs.chart-archive }}
+        PACKAGE: ${{ inputs.package }}
+        VERSION: ${{ inputs.version }}
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        REPOSITORY: ${{ inputs.repository }}
+      run: |
+        chmod +x ${{ github.action_path }}/scripts/push_helm_to_ecr.sh
+        ${{ github.action_path }}/scripts/push_helm_to_ecr.sh
