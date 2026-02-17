@@ -45,27 +45,32 @@ echo "Target ECR Repository: $ECR_REPO_NAME"
 # Tag pattern usually: version-branch.build or similar.
 # We look for the safe branch name in the imageTag.
 
-echo "Finding images..."
-IMAGE_DIGESTS=$(aws ecr list-images --repository-name "$ECR_REPO_NAME" --region "$REGION" \
-    --query "imageIds[?imageTag!=null && contains(imageTag, '${SAFE_BRANCH_NAME}')].imageDigest" \
-    --output text)
-
-if [ -z "$IMAGE_DIGESTS" ]; then
-    echo "No images found for branch $BRANCH_NAME in ECR."
+echo "Checking if repository ${ECR_REPO_NAME} exists..."
+if ! aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region "$REGION" >/dev/null 2>&1; then
+    echo "Repository $ECR_REPO_NAME does not exist. Skipping ECR cleanup."
 else
-    echo "Found images to delete:"
-    echo "$IMAGE_DIGESTS"
+    echo "Repository $ECR_REPO_NAME found. Finding images..."
+    IMAGE_DIGESTS=$(aws ecr list-images --repository-name "$ECR_REPO_NAME" --region "$REGION" \
+        --query "imageIds[?imageTag!=null && contains(imageTag, '${SAFE_BRANCH_NAME}')].imageDigest" \
+        --output text)
 
-    # Convert space-delimited digests to format needed for batch-delete-image
-    DELETE_ARGS=""
-    for digest in $IMAGE_DIGESTS; do
-        DELETE_ARGS="$DELETE_ARGS imageDigest=$digest"
-    done
+  if [ -z "$IMAGE_DIGESTS" ]; then
+      echo "No images found for branch $BRANCH_NAME in ECR."
+  else
+      echo "Found images to delete:"
+      echo "$IMAGE_DIGESTS"
 
-    echo "Deleting images..."
-    aws ecr batch-delete-image --repository-name "$ECR_REPO_NAME" --region "$REGION" --image-ids $DELETE_ARGS
+      # Convert space-delimited digests to format needed for batch-delete-image
+      DELETE_ARGS=""
+      for digest in $IMAGE_DIGESTS; do
+          DELETE_ARGS="$DELETE_ARGS imageDigest=$digest"
+      done
 
-    echo "ECR Cleanup complete."
+      echo "Deleting images..."
+      aws ecr batch-delete-image --repository-name "$ECR_REPO_NAME" --region "$REGION" --image-ids $DELETE_ARGS
+
+      echo "ECR Cleanup complete."
+  fi
 fi
 
 # ------------------------------------------------------------------
