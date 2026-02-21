@@ -27,7 +27,11 @@ if [ -z "$DOCKERHUB_TOKEN" ]; then
   exit 1
 fi
 
-TARGET_REPO="${REPOSITORY:-$DOCKERHUB_USERNAME}"
+if [ -n "$REPOSITORY" ]; then
+  TARGET_REPO="${DOCKERHUB_USERNAME}/${REPOSITORY}"
+else
+  TARGET_REPO="${DOCKERHUB_USERNAME}"
+fi
 
 # Login to GitHub Container Registry
 echo "Logging into GitHub Container Registry..."
